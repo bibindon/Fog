@@ -175,7 +175,7 @@ VOID Render()
     if (SUCCEEDED(g_pd3dDevice->BeginScene()))
     {
         char msg[100];
-        strcpy_s(msg, 100, "CloneMeshŠÖ”‚ÌƒTƒ“ƒvƒ‹");
+        strcpy_s(msg, 100, "–¶‚ğ•\¦‚·‚é—ûK");
         TextDraw(g_pFont, msg, 0, 0);
 
         {

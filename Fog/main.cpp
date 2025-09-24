@@ -1,3 +1,6 @@
+Ôªø// ËªΩÈáè„Å™„Éï„Ç©„Ç∞
+// È†ÇÁÇπ„Ç∑„Çß„Éº„ÉÄ„Éº„ÅßË®àÁÆó„Åó„Å¶„ÅÑ„Çã
+
 #pragma comment( lib, "d3d9.lib" )
 #if defined(DEBUG) || defined(_DEBUG)
 #pragma comment( lib, "d3dx9d.lib" )
@@ -22,7 +25,7 @@ LPD3DXEFFECT pEffect = NULL;
 D3DXMATERIAL* d3dxMaterials = NULL;
 float f = 0.0f;
 
-void TextDraw(LPD3DXFONT pFont, char* text, int X, int Y)
+void TextDraw(LPD3DXFONT pFont, wchar_t* text, int X, int Y)
 {
     RECT rect = { X,Y,0,0 };
     pFont->DrawText(NULL, text, -1, &rect, DT_LEFT | DT_NOCLIP, D3DCOLOR_ARGB(255, 0, 0, 0));
@@ -69,7 +72,7 @@ HRESULT InitD3D(HWND hWnd)
         OUT_TT_ONLY_PRECIS,
         ANTIALIASED_QUALITY,
         FF_DONTCARE,
-        "ÇlÇr ÉSÉVÉbÉN",
+        L"Ôº≠Ôº≥ „Ç¥„Ç∑„ÉÉ„ÇØ",
         &g_pFont);
     if FAILED(hr)
     {
@@ -78,11 +81,11 @@ HRESULT InitD3D(HWND hWnd)
 
     LPD3DXBUFFER pD3DXMtrlBuffer = NULL;
 
-    if (FAILED(D3DXLoadMeshFromX("cube.x", D3DXMESH_SYSTEMMEM,
+    if (FAILED(D3DXLoadMeshFromX(L"cube.x", D3DXMESH_SYSTEMMEM,
         g_pd3dDevice, NULL, &pD3DXMtrlBuffer, NULL,
         &dwNumMaterials, &pMesh)))
     {
-        MessageBox(NULL, "XÉtÉ@ÉCÉãÇÃì«Ç›çûÇ›Ç…é∏îsÇµÇ‹ÇµÇΩ", NULL, MB_OK);
+        MessageBox(NULL, L"X„Éï„Ç°„Ç§„É´„ÅÆË™≠„ÅøËæº„Åø„Å´Â§±Êïó„Åó„Åæ„Åó„Åü", NULL, MB_OK);
         return E_FAIL;
     }
     d3dxMaterials = (D3DXMATERIAL*)pD3DXMtrlBuffer->GetBufferPointer();
@@ -95,13 +98,13 @@ HRESULT InitD3D(HWND hWnd)
         pMaterials[i].Ambient = pMaterials[i].Diffuse;
         pTextures[i] = NULL;
         if (d3dxMaterials[i].pTextureFilename != NULL &&
-            lstrlen(d3dxMaterials[i].pTextureFilename) > 0)
+            lstrlenA(d3dxMaterials[i].pTextureFilename) > 0)
         {
-            if (FAILED(D3DXCreateTextureFromFile(g_pd3dDevice,
+            if (FAILED(D3DXCreateTextureFromFileA(g_pd3dDevice,
                 d3dxMaterials[i].pTextureFilename,
                 &pTextures[i])))
             {
-                MessageBox(NULL, "ÉeÉNÉXÉ`ÉÉÇÃì«Ç›çûÇ›Ç…é∏îsÇµÇ‹ÇµÇΩ", NULL, MB_OK);
+                MessageBox(NULL, L"„ÉÜ„ÇØ„Çπ„ÉÅ„É£„ÅÆË™≠„ÅøËæº„Åø„Å´Â§±Êïó„Åó„Åæ„Åó„Åü", NULL, MB_OK);
             }
         }
     }
@@ -111,7 +114,7 @@ HRESULT InitD3D(HWND hWnd)
 
     D3DXCreateEffectFromFile(
         g_pd3dDevice,
-        "simple.fx",
+        L"simple.fx",
         NULL,
         NULL,
         D3DXSHADER_DEBUG,
@@ -174,8 +177,8 @@ VOID Render()
 
     if (SUCCEEDED(g_pd3dDevice->BeginScene()))
     {
-        char msg[100];
-        strcpy_s(msg, 100, "ñ∂Çï\é¶Ç∑ÇÈó˚èK");
+        wchar_t msg[100];
+        wcscpy_s(msg, 100, L"Èúß„ÇíË°®Á§∫„Åô„ÇãÁ∑¥Áøí");
         TextDraw(g_pFont, msg, 0, 0);
 
         {
@@ -252,7 +255,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE hInst, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ 
 {
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, MsgProc, 0L, 0L,
                       GetModuleHandle(NULL), NULL, NULL, NULL, NULL,
-                      "Window1", NULL };
+                      L"Window1", NULL };
     RegisterClassEx(&wc);
 
     RECT rect;
@@ -263,7 +266,7 @@ INT WINAPI wWinMain(_In_ HINSTANCE hInst, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ 
     rect.top = 0;
     rect.left = 0;
 
-    HWND hWnd = CreateWindow("Window1", "Hello DirectX9 World !!",
+    HWND hWnd = CreateWindow(L"Window1", L"Hello DirectX9 World !!",
         WS_OVERLAPPEDWINDOW, 10, 10, rect.right, rect.bottom,
         NULL, NULL, wc.hInstance, NULL);
 
@@ -280,6 +283,6 @@ INT WINAPI wWinMain(_In_ HINSTANCE hInst, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ 
         }
     }
 
-    UnregisterClass("Window1", wc.hInstance);
+    UnregisterClass(L"Window1", wc.hInstance);
     return 0;
 }

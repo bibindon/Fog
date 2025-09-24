@@ -22,10 +22,10 @@ void vertex_shader(
     out float4 fog : TEXCOORD1
     )
 {
-    // ���[���h���W�ɕϊ�
+    // ワールド座標に変換
     float4 worldPos = mul(in_position, matWorld);
 
-    // �J��������̋��������[���h��ԂŌv�Z
+    // カメラからの距離をワールド空間で計算
     float distance = length(worldPos.xyz - g_cameraPos.xyz);
 
     out_position = mul(in_position, matWorldViewProj);
@@ -40,8 +40,8 @@ void vertex_shader(
     fog.a = 1.0f;
 }
 
-// ���̓s�N�Z���V�F�[�_�[�ł��Ȃ��ƈӖ����Ȃ��B
-// ���_�V�F�[�_�[�ł��ƁA�����قǂ������茩����悤�ɂȂ邾��
+// 霧はピクセルシェーダーでやらないと意味がない。
+// 頂点シェーダーでやると、遠いほどくっきり見えるようになるだけ
 void NoWorkingPixelShader(
     in float4 ScreenColor : COLOR0,
     in float2 in_texcood : TEXCOORD0,

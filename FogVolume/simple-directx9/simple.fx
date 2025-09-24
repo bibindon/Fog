@@ -1,82 +1,104 @@
-// ========= Analytic Volumetric Box (DX9 / vs_2_0, ps_2_0) =========
-// 構造体は使わず、in/out セマンティクスのみで受け渡し
+// ================= Volumetric Fog by Front/Back Depth (DX9 / SM3.0) =================
+// Pass1: 背面の線形Z(eyeZ) を R32F RT に書き出す（ZFunc=GREATER, Depth=0 でクリア）
+// Pass2: 前面で backZ - frontZ から厚みを出し、α=1-exp(-σ_t*L) でプリマルチ合成
 
-float4x4 gWorld;
-float4x4 gView;
-float4x4 gProj;
-float4x4 gInvWorld;
+float4x4 gWorld, gView, gProj;
 
-float3 gCameraPosW;
+// 画面サイズの逆数（半ピクセル補正用）
+float2 gInvTexSize = float2(1.0 / 1600.0, 1.0 / 900.0);
 
-float3 gBoxCenterOS = float3(0, 0, 0); // メッシュのローカル中心（AABBの中心）
-float3 gBoxHalfExtent = float3(0.5, 0.5, 0.5); // AABB 半径
-
-float3 gFogColor = float3(1.0, 1.0, 1.0); // 白煙
-float gSigmaT = 1.0; // 濃さ（大きいほど不透明）
-
-// --- VS: ワールド座標を PS に渡すだけ ---
-float4 VS_VolBox(float3 pos : POSITION0,
-                 out float3 oPosW : TEXCOORD0) : POSITION0
+// 背面Zを書いた R32F / A16B16G16R16F テクスチャ
+texture gBackDepthTex;
+sampler2D SBack = sampler_state
 {
-    float4 Pw = mul(float4(pos, 1), gWorld);
-    oPosW = Pw.xyz;
-    float4 Pv = mul(Pw, gView);
-    return mul(Pv, gProj);
+    Texture = <gBackDepthTex>;
+    MinFilter = POINT;
+    MagFilter = POINT;
+    MipFilter = NONE;
+    AddressU = Clamp;
+    AddressV = Clamp;
+};
+
+// フォグの濃さと色
+float gSigmaT = 0.8; // 濁度（大きいほど濃い）
+float3 gFogColor = float3(1, 1, 1); // 白煙
+
+// ---------- 共通VS：スクリーンUVと線形Z(eyeZ)を出す ----------
+float4 VS_ScreenUV(
+    float3 pos : POSITION0,
+    out float2 oUV : TEXCOORD0,
+    out float oEyeZ : TEXCOORD1) : POSITION0
+{
+    float4 w = mul(float4(pos, 1), gWorld);
+    float4 v = mul(w, gView);
+    float4 h = mul(v, gProj);
+
+    // 左手系(LookAtLH)なので、画面奥へ行くほど v.z が大きくなる
+    oEyeZ = v.z;
+
+    // 画面UV（同一ビューポートのRTをサンプルするため）
+    float2 uv = h.xy / h.w; // NDC(-1..1)
+    uv = uv * float2(0.5, -0.5) + 0.5;
+    uv += 0.5 * gInvTexSize; // D3D9 半ピクセル補正
+    oUV = uv;
+
+    return h;
 }
 
-// --- PS: レイ × 有限直方体（スラブ法）→ 通過長 L → α ---
-float4 PS_VolBox(float3 posW : TEXCOORD0) : COLOR0
+// ---------- P1: 背面の線形Zを書き出す ----------
+float4 PS_WriteBackZ(float2 uv : TEXCOORD0, float eyeZ : TEXCOORD1) : COLOR0
 {
-    // ワールド→ローカル（箱はローカルAABBで判定）
-    float3 Ow = gCameraPosW;
-    float3 O = mul(float4(Ow, 1), gInvWorld).xyz - gBoxCenterOS;
-
-    float3 Pw = posW;
-    float3 P = mul(float4(Pw, 1), gInvWorld).xyz - gBoxCenterOS;
-
-    float3 D = normalize(P - O);
-
-    // スラブ法
-    float3 invD = 1.0 / D;
-    float3 t1 = (-gBoxHalfExtent - O) * invD;
-    float3 t2 = (gBoxHalfExtent - O) * invD;
-
-    float3 tMin = min(t1, t2);
-    float3 tMax = max(t1, t2);
-
-    float tNear = max(tMin.x, max(tMin.y, tMin.z));
-    float tFar = min(tMax.x, min(tMax.y, tMax.z));
-
-    if (tFar <= tNear || tFar <= 0.0)
-        return float4(0, 0, 0, 0);
-
-    // 視点が箱の外でも内でもOK
-    if (tNear < 0.0)
-        tNear = 0.0;
-
-    float L = max(tFar - tNear, 0.0);
-
-    // 均一媒質の減衰 → プリマルチ色
-    float T = exp(-gSigmaT * L);
-    float alpha = saturate(1.0 - T);
-
-    // 境界線がくっきり出るのを防ぐ
-    alpha = alpha * alpha;
-
-    float3 col = gFogColor * alpha;
-
-    return float4(col, alpha);
+    return float4(eyeZ, 0, 0, 1); // R32F想定（.r を使用）
 }
 
-technique TechniqueVolumeBox
+technique Technique_BackDepth
 {
     pass P0
     {
-        VertexShader = compile vs_3_0 VS_VolBox();
-        PixelShader = compile ps_3_0 PS_VolBox();
-        // D3D 側で:
-        // ZEnable=TRUE, ZWriteEnable=FALSE,
-        // AlphaBlend=TRUE, Src=ONE, Dest=INV_SRC_ALPHA
-        // Cull はどちらでも可（規定のCCWでOK）
+        // 深度0クリア後に GREATER で描くと、最も奥（=値が大）のサーフェスが残る
+        CullMode = None; // 巻き順に依らず両面描画
+        ZEnable = TRUE;
+        ZWriteEnable = TRUE;
+        ZFunc = GREATER; // 重要
+        AlphaBlendEnable = FALSE;
+
+        VertexShader = compile vs_3_0 VS_ScreenUV();
+        PixelShader = compile ps_3_0 PS_WriteBackZ();
+    }
+}
+
+// ---------- P2: 前面から厚みを計算して合成 ----------
+float4 PS_FrontComposite(float2 uv : TEXCOORD0, float eyeZFront : TEXCOORD1) : COLOR0
+{
+    float backZ = tex2D(SBack, uv).r; // 背面の線形Z
+    float thickness = backZ - eyeZFront; // 厚み（m）
+    if (thickness < 0.0)
+        thickness = 0.0;
+
+    // Beer-Lambert：α = 1 - exp(-σ_t * L)
+    float alpha = 1.0 - exp(-gSigmaT * thickness);
+    alpha = saturate(alpha);
+    alpha = alpha * alpha;
+
+    float3 col = gFogColor * alpha; // プリマルチ色
+    return float4(col, alpha);
+}
+
+technique Technique_FrontComposite
+{
+    pass P0
+    {
+        CullMode = None; // 両面描画、深度で前面のみ通る
+        ZEnable = TRUE;
+        ZWriteEnable = FALSE; // 合成なので書かない
+        ZFunc = LESSEQUAL; // 既に背面Zが入っている（前面のほうが小さい）
+
+        // プリマルチ "over"
+        AlphaBlendEnable = TRUE;
+        SrcBlend = ONE;
+        DestBlend = INVSRCALPHA;
+
+        VertexShader = compile vs_3_0 VS_ScreenUV();
+        PixelShader = compile ps_3_0 PS_FrontComposite();
     }
 }

@@ -24,13 +24,14 @@ LPDIRECT3DTEXTURE9  g_texGrass = NULL;   // grass.png
 
 LPD3DXEFFECT        g_fx = NULL;
 
-// RTs
-LPDIRECT3DTEXTURE9  g_rtSceneDepth = NULL; // R32F scene Z
-LPDIRECT3DSURFACE9  g_surfSceneRT = NULL;
+// RTs for 4-pass rendering
+LPDIRECT3DTEXTURE9  g_rtFrontDepth = NULL; // R32F フォグ前面Z
+LPDIRECT3DSURFACE9  g_surfFrontRT = NULL;
+LPDIRECT3DSURFACE9  g_dsFrontPass = NULL; // 前面パス専用DS
 
-LPDIRECT3DTEXTURE9  g_rtBackDepth = NULL; // R32F fog back Z
+LPDIRECT3DTEXTURE9  g_rtBackDepth = NULL;  // R32F フォグ後面Z  
 LPDIRECT3DSURFACE9  g_surfBackRT = NULL;
-LPDIRECT3DSURFACE9  g_dsBackPass = NULL; // 背面パス専用DS
+LPDIRECT3DSURFACE9  g_dsBackPass = NULL;   // 後面パス専用DS
 
 bool g_quit = false;
 
@@ -45,17 +46,22 @@ static DWORD GetSubsetCount(LPD3DXMESH m) { DWORD n = 0; if (!m) return 0; m->Ge
 void CreateRenderTargets(int w, int h)
 {
     HRESULT hr;
-    // SceneDepth
-    hr = D3DXCreateTexture(g_pd3d, w, h, 1, D3DUSAGE_RENDERTARGET, D3DFMT_R32F, D3DPOOL_DEFAULT, &g_rtSceneDepth);
-    if (FAILED(hr)) { hr = D3DXCreateTexture(g_pd3d, w, h, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A16B16G16R16F, D3DPOOL_DEFAULT, &g_rtSceneDepth); assert(SUCCEEDED(hr)); }
-    hr = g_rtSceneDepth->GetSurfaceLevel(0, &g_surfSceneRT); assert(SUCCEEDED(hr));
 
-    // Fog BackDepth
+    // FrontDepth
+    hr = D3DXCreateTexture(g_pd3d, w, h, 1, D3DUSAGE_RENDERTARGET, D3DFMT_R32F, D3DPOOL_DEFAULT, &g_rtFrontDepth);
+    if (FAILED(hr)) { hr = D3DXCreateTexture(g_pd3d, w, h, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A16B16G16R16F, D3DPOOL_DEFAULT, &g_rtFrontDepth); assert(SUCCEEDED(hr)); }
+    hr = g_rtFrontDepth->GetSurfaceLevel(0, &g_surfFrontRT); assert(SUCCEEDED(hr));
+
+    // 前面パス専用 DS
+    hr = g_pd3d->CreateDepthStencilSurface(w, h, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, TRUE, &g_dsFrontPass, NULL);
+    assert(SUCCEEDED(hr));
+
+    // BackDepth
     hr = D3DXCreateTexture(g_pd3d, w, h, 1, D3DUSAGE_RENDERTARGET, D3DFMT_R32F, D3DPOOL_DEFAULT, &g_rtBackDepth);
     if (FAILED(hr)) { hr = D3DXCreateTexture(g_pd3d, w, h, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A16B16G16R16F, D3DPOOL_DEFAULT, &g_rtBackDepth); assert(SUCCEEDED(hr)); }
     hr = g_rtBackDepth->GetSurfaceLevel(0, &g_surfBackRT); assert(SUCCEEDED(hr));
 
-    // Fog 背面パス専用 DS（シーンDSを壊さない）
+    // 後面パス専用 DS
     hr = g_pd3d->CreateDepthStencilSurface(w, h, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, TRUE, &g_dsBackPass, NULL);
     assert(SUCCEEDED(hr));
 }
@@ -96,8 +102,9 @@ void Cleanup()
     SAFE_RELEASE(g_dsBackPass);
     SAFE_RELEASE(g_surfBackRT);
     SAFE_RELEASE(g_rtBackDepth);
-    SAFE_RELEASE(g_surfSceneRT);
-    SAFE_RELEASE(g_rtSceneDepth);
+    SAFE_RELEASE(g_dsFrontPass);
+    SAFE_RELEASE(g_surfFrontRT);
+    SAFE_RELEASE(g_rtFrontDepth);
     SAFE_RELEASE(g_texGrass);
     SAFE_RELEASE(g_meshSphere);
     SAFE_RELEASE(g_meshCube);
@@ -116,38 +123,23 @@ void Render()
     D3DXVECTOR2 invSz(1.0f / WINDOW_W, 1.0f / WINDOW_H);
 
     D3DXMATRIX mWCube;   D3DXMatrixIdentity(&mWCube);               // cube at (0,0,0)
-    D3DXMATRIX mWSphere; D3DXMatrixTranslation(&mWSphere, 1, 2, 1);    // sphere at (1,1,1)
+    D3DXMATRIX mWSphere; D3DXMatrixTranslation(&mWSphere, 1, 2, 1); // sphere at (1,2,1)
 
     LPDIRECT3DSURFACE9 bb = NULL, dsScene = NULL;
     g_pd3d->GetRenderTarget(0, &bb);
     g_pd3d->GetDepthStencilSurface(&dsScene);
 
-    UINT nPass = 0; HRESULT hr;
-
-    // ===== Pass A: SceneDepth prepass (to RT, 同時にシーンDSを埋める) =====
-    g_pd3d->SetRenderTarget(0, g_surfSceneRT);
-    g_pd3d->SetDepthStencilSurface(dsScene);
+    UINT nPass = 0;
     D3DVIEWPORT9 vp = { 0,0,(DWORD)WINDOW_W,(DWORD)WINDOW_H,0.0f,1.0f };
     g_pd3d->SetViewport(&vp);
 
-    g_pd3d->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 1.0f, 0); // RTは0（=未描画の印）
-    g_pd3d->BeginScene();
-    g_fx->SetTechnique("Technique_SceneDepth");
-    g_fx->SetMatrix("gWorld", &mWCube);
-    g_fx->SetMatrix("gView", &mV);
-    g_fx->SetMatrix("gProj", &mP);
-    g_fx->SetVector("gInvTexSize", (D3DXVECTOR4*)&invSz);
-    g_fx->Begin(&nPass, 0); g_fx->BeginPass(0);
-    for (DWORD i = 0, n = GetSubsetCount(g_meshCube); i < n; ++i) g_meshCube->DrawSubset(i);
-    g_fx->EndPass(); g_fx->End();
-    g_pd3d->EndScene();
-
-    // ===== Opaque color (ZEqual) =====
+    // ===== Pass 1: Opaque objects (通常描画) =====
     g_pd3d->SetRenderTarget(0, bb);
     g_pd3d->SetDepthStencilSurface(dsScene);
-    g_pd3d->Clear(0, NULL, D3DCLEAR_TARGET, 0xFF808080, 1.0f, 0); // Zは消さない（prepassを使う）
+    g_pd3d->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xFF808080, 1.0f, 0);
+
     g_pd3d->BeginScene();
-    g_fx->SetTechnique("Technique_Opaque_ZEqual");
+    g_fx->SetTechnique("Technique_Opaque");
     g_fx->SetMatrix("gWorld", &mWCube);
     g_fx->SetMatrix("gView", &mV);
     g_fx->SetMatrix("gProj", &mP);
@@ -157,10 +149,27 @@ void Render()
     g_fx->EndPass(); g_fx->End();
     g_pd3d->EndScene();
 
-    // ===== Pass B: Fog BackDepth =====
+    // ===== Pass 2: Fog Front Depth (前面の深度をRTに書き込み) =====
+    g_pd3d->SetRenderTarget(0, g_surfFrontRT);
+    g_pd3d->SetDepthStencilSurface(g_dsFrontPass);
+    g_pd3d->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 1.0f, 0); // depth=1, ZFunc=LESS
+
+    g_pd3d->BeginScene();
+    g_fx->SetTechnique("Technique_FrontDepth");
+    g_fx->SetMatrix("gWorld", &mWSphere);
+    g_fx->SetMatrix("gView", &mV);
+    g_fx->SetMatrix("gProj", &mP);
+    g_fx->SetVector("gInvTexSize", (D3DXVECTOR4*)&invSz);
+    g_fx->Begin(&nPass, 0); g_fx->BeginPass(0);
+    for (DWORD i = 0, n = GetSubsetCount(g_meshSphere); i < n; ++i) g_meshSphere->DrawSubset(i);
+    g_fx->EndPass(); g_fx->End();
+    g_pd3d->EndScene();
+
+    // ===== Pass 3: Fog Back Depth (後面の深度をRTに書き込み) =====
     g_pd3d->SetRenderTarget(0, g_surfBackRT);
     g_pd3d->SetDepthStencilSurface(g_dsBackPass);
     g_pd3d->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 0.0f, 0); // depth=0, ZFunc=GREATER
+
     g_pd3d->BeginScene();
     g_fx->SetTechnique("Technique_BackDepth");
     g_fx->SetMatrix("gWorld", &mWSphere);
@@ -172,17 +181,18 @@ void Render()
     g_fx->EndPass(); g_fx->End();
     g_pd3d->EndScene();
 
-    // ===== Pass C: Fog Front Composite (clamped by scene depth) =====
+    // ===== Pass 4: Fog Composite (前面・後面深度を使ってフォグを合成) =====
     g_pd3d->SetRenderTarget(0, bb);
     g_pd3d->SetDepthStencilSurface(dsScene); // シーン深度でZテスト
+
     g_pd3d->BeginScene();
-    g_fx->SetTechnique("Technique_FrontComposite");
+    g_fx->SetTechnique("Technique_FogComposite");
     g_fx->SetMatrix("gWorld", &mWSphere);
     g_fx->SetMatrix("gView", &mV);
     g_fx->SetMatrix("gProj", &mP);
     g_fx->SetVector("gInvTexSize", (D3DXVECTOR4*)&invSz);
+    g_fx->SetTexture("gFrontDepthTex", g_rtFrontDepth);
     g_fx->SetTexture("gBackDepthTex", g_rtBackDepth);
-    g_fx->SetTexture("gSceneDepthTex", g_rtSceneDepth);
     D3DXVECTOR4 fog(1, 1, 1, 1); g_fx->SetVector("gFogColor", &fog);
     g_fx->SetFloat("gSigmaT", 0.7f);
     g_fx->Begin(&nPass, 0); g_fx->BeginPass(0);
@@ -201,7 +211,7 @@ int APIENTRY _tWinMain(HINSTANCE hInst, HINSTANCE, LPTSTR, int)
     WNDCLASSEX wc = { sizeof(WNDCLASSEX),CS_CLASSDC,WndProc,0,0,hInst,NULL,NULL,NULL,NULL,_T("VolFog"),NULL };
     RegisterClassEx(&wc);
     RECT rc = { 0,0,WINDOW_W,WINDOW_H }; AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
-    HWND hWnd = CreateWindow(_T("VolFog"), _T("Cube (opaque) + Sphere (volumetric fog, clamped)"),
+    HWND hWnd = CreateWindow(_T("VolFog"), _T("4-Pass Volumetric Fog: Cube (opaque) + Sphere (fog)"),
                              WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
                              rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInst, NULL);
     ShowWindow(hWnd, SW_SHOWDEFAULT); UpdateWindow(hWnd);

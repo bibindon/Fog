@@ -282,24 +282,17 @@ void Render()
     D3DXMATRIX mat;
     D3DXMATRIX View, Proj;
 
-    D3DXMATRIX matWorldView;
-    D3DXMatrixIdentity(&matWorldView);
-
     D3DXMatrixPerspectiveFovLH(&Proj,
                                D3DXToRadian(45),
                                (float)WINDOW_SIZE_W / WINDOW_SIZE_H,
                                1.0f,
                                10000.0f);
 
-    D3DXVECTOR3 vec1(5 * sinf(f), 2, -5 * cosf(f));
-    D3DXVECTOR3 vec2(0, 1, 0);
+    D3DXVECTOR3 vec1(10 * sinf(f), 10, -10 * cosf(f));
+    D3DXVECTOR3 vec2(0, 0, 0);
     D3DXVECTOR3 vec3(0, 1, 0);
     D3DXMatrixLookAtLH(&View, &vec1, &vec2, &vec3);
     D3DXMatrixIdentity(&mat);
-
-    matWorldView = mat * View;
-    hResult = g_pEffect->SetMatrix("g_matWorldView", &matWorldView);
-
     mat = mat * View * Proj;
 
     hResult = g_pEffect->SetMatrix("g_matWorldViewProj", &mat);
@@ -308,10 +301,7 @@ void Render()
     hResult = g_pd3dDevice->Clear(0,
                                   NULL,
                                   D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
-
-                                  // 青空
-                                  D3DCOLOR_XRGB(128, 192, 255),
-
+                                  D3DCOLOR_XRGB(100, 100, 100),
                                   1.0f,
                                   0);
 

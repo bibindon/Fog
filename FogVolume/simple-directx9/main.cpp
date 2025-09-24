@@ -177,7 +177,12 @@ void Render()
     g_fx->SetMatrix("gProj", &mP);
     g_fx->SetVector("gInvTexSize", (D3DXVECTOR4*)&invSz);
 
+    // 黄色
+    D3DXVECTOR4 fog(1, 1, 0.7, 1);
+
+    // 白
     D3DXVECTOR4 fog(1, 1, 1, 1);
+
     g_fx->SetVector("gFogColor", &fog);
     g_fx->SetFloat("gSigmaT", 0.4f);
     g_fx->SetTexture("gBackDepthTex", g_texBackDepth);

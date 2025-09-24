@@ -136,7 +136,7 @@ void Render()
     // ===== Pass 1: Opaque objects (通常描画) =====
     g_pd3d->SetRenderTarget(0, bb);
     g_pd3d->SetDepthStencilSurface(dsScene);
-    g_pd3d->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xFF808080, 1.0f, 0);
+    g_pd3d->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xFF202020, 1.0f, 0);
 
     g_pd3d->BeginScene();
     g_fx->SetTechnique("Technique_Opaque");
@@ -181,6 +181,19 @@ void Render()
     g_fx->EndPass(); g_fx->End();
     g_pd3d->EndScene();
 
+    // 中心だけ濃くする
+    {
+        // mWSphere, mV を使って球中心をビュー空間に
+        D3DXMATRIX mWV = mWSphere * mV;
+        D3DXVECTOR4 centerVS(0, 0, 0, 1); D3DXVec4Transform(&centerVS, &centerVS, &mWV);
+        g_fx->SetVector("gSphereCenterVS", &centerVS);
+
+        // 半径（モデルが半径1なら 1.0、スケールしているならその値）
+        g_fx->SetFloat("gSphereRadius", 1.0f);
+        // 中心の鋭さ
+        g_fx->SetFloat("gCenterSharpness", 5.0f);
+    }
+
     // ===== Pass 4: Fog Composite (前面・後面深度を使ってフォグを合成) =====
     g_pd3d->SetRenderTarget(0, bb);
     g_pd3d->SetDepthStencilSurface(dsScene); // シーン深度でZテスト
@@ -194,7 +207,7 @@ void Render()
     g_fx->SetTexture("gFrontDepthTex", g_rtFrontDepth);
     g_fx->SetTexture("gBackDepthTex", g_rtBackDepth);
     D3DXVECTOR4 fog(1, 1, 1, 1); g_fx->SetVector("gFogColor", &fog);
-    g_fx->SetFloat("gSigmaT", 0.7f);
+    g_fx->SetFloat("gSigmaT", 1.7f);
     g_fx->Begin(&nPass, 0); g_fx->BeginPass(0);
     for (DWORD i = 0, n = GetSubsetCount(g_meshSphere); i < n; ++i) g_meshSphere->DrawSubset(i);
     g_fx->EndPass(); g_fx->End();

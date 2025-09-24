@@ -45,7 +45,7 @@ technique Technique_Opaque
     }
 }
 
-// ---------- Pass 2: FOG FRONT DEPTH (‘O–Ê[“x‚ğRT‚É‘‚«‚İ) ----------
+// ---------- Pass 2: FOG FRONT DEPTH (å‰é¢æ·±åº¦ã‚’RTã«æ›¸ãè¾¼ã¿) ----------
 float4 VS_ScreenUV(float3 pos : POSITION0,
                    out float2 oUV : TEXCOORD0,
                    out float oEyeZ : TEXCOORD1) : POSITION0
@@ -54,10 +54,10 @@ float4 VS_ScreenUV(float3 pos : POSITION0,
     float4 v = mul(w, gView);
     float4 h = mul(v, gProj);
 
-    // üŒ`‹“_‹óŠÔZi¶èŒn‚È‚Ì‚Å‰“‚­‚Ù‚Ç‘å‚«‚¢’lj
+    // ç·šå½¢è¦–ç‚¹ç©ºé–“Zï¼ˆå·¦æ‰‹ç³»ãªã®ã§é ãã»ã©å¤§ãã„å€¤ï¼‰
     oEyeZ = v.z;
     
-    // ƒXƒNƒŠ[ƒ“À•WŒnUV
+    // ã‚¹ã‚¯ãƒªãƒ¼ãƒ³åº§æ¨™ç³»UV
     float2 uv = h.xy / h.w;
     uv = uv * float2(0.5, -0.5) + 0.5;
     uv += 0.5 * gInvTexSize;
@@ -67,46 +67,46 @@ float4 VS_ScreenUV(float3 pos : POSITION0,
 
 float4 PS_WriteFrontZ(float2 uv : TEXCOORD0, float eyeZ : TEXCOORD1) : COLOR0
 {
-    return float4(eyeZ, 0, 0, 1); // R32F‚ğ‘z’è
+    return float4(eyeZ, 0, 0, 1); // R32Fã‚’æƒ³å®š
 }
 
 technique Technique_FrontDepth
 {
     pass P0
     {
-        CullMode = CCW; // ‘O–Êi•\–Êj‚ğ•`‰æ
+        CullMode = CCW; // å‰é¢ï¼ˆè¡¨é¢ï¼‰ã‚’æç”»
         ZEnable = TRUE;
         ZWriteEnable = TRUE;
-        ZFunc = LESSEQUAL; // ’Êí‚ÌZƒeƒXƒg
+        ZFunc = LESSEQUAL; // é€šå¸¸ã®Zãƒ†ã‚¹ãƒˆ
         AlphaBlendEnable = FALSE;
         VertexShader = compile vs_3_0 VS_ScreenUV();
         PixelShader = compile ps_3_0 PS_WriteFrontZ();
     }
 }
 
-// ---------- Pass 3: FOG BACK DEPTH (Œã–Ê[“x‚ğRT‚É‘‚«‚İ) ----------
+// ---------- Pass 3: FOG BACK DEPTH (å¾Œé¢æ·±åº¦ã‚’RTã«æ›¸ãè¾¼ã¿) ----------
 float4 PS_WriteBackZ(float2 uv : TEXCOORD0, float eyeZ : TEXCOORD1) : COLOR0
 {
-    return float4(eyeZ, 0, 0, 1); // R32F‚ğ‘z’è
+    return float4(eyeZ, 0, 0, 1); // R32Fã‚’æƒ³å®š
 }
 
 technique Technique_BackDepth
 {
     pass P0
     {
-        CullMode = CW; // Œã–Êi— –Êj‚ğ•`‰æ‚·‚é‚½‚ß— –ÊƒJƒŠƒ“ƒO‚ğ–³Œø‰»iCCW¨CWj
+        CullMode = CW; // å¾Œé¢ï¼ˆè£é¢ï¼‰ã‚’æç”»ã™ã‚‹ãŸã‚è£é¢ã‚«ãƒªãƒ³ã‚°ã‚’ç„¡åŠ¹åŒ–ï¼ˆCCWâ†’CWï¼‰
         ZEnable = TRUE;
         ZWriteEnable = TRUE;
-        ZFunc = GREATER; // depth=0‚ÅƒNƒŠƒA‚µ‚Ä‚¢‚é‚½‚ßAGREATER ‚ğg—p
+        ZFunc = GREATER; // depth=0ã§ã‚¯ãƒªã‚¢ã—ã¦ã„ã‚‹ãŸã‚ã€GREATER ã‚’ä½¿ç”¨
         AlphaBlendEnable = FALSE;
         VertexShader = compile vs_3_0 VS_ScreenUV();
         PixelShader = compile ps_3_0 PS_WriteBackZ();
     }
 }
 
-// ---------- Pass 4: FOG COMPOSITE (‘O–ÊEŒã–Ê[“x‚ğg‚Á‚ÄƒtƒHƒO‚ğ‡¬) ----------
-texture gFrontDepthTex; // ‘O–ÊZ
-texture gBackDepthTex; // Œã–ÊZ
+// ---------- Pass 4: FOG COMPOSITE (å‰é¢ãƒ»å¾Œé¢æ·±åº¦ã‚’ä½¿ã£ã¦ãƒ•ã‚©ã‚°ã‚’åˆæˆ) ----------
+texture gFrontDepthTex; // å‰é¢Z
+texture gBackDepthTex; // å¾Œé¢Z
 
 sampler2D SFront = sampler_state
 {
@@ -131,34 +131,70 @@ sampler2D SBack = sampler_state
 float gSigmaT = 0.6;
 float3 gFogColor = float3(1, 1, 1);
 
+/* 
 float4 PS_FogComposite(float2 uv : TEXCOORD0, float eyeZFront : TEXCOORD1) : COLOR0
 {
     float frontZ = tex2D(SFront, uv).r;
     float backZ = tex2D(SBack, uv).r;
     
-    // ƒtƒHƒOƒ{ƒŠƒ…[ƒ€‚É“ü‚Á‚Ä‚¢‚È‚¢ê‡‚Í‰½‚à•`‰æ‚µ‚È‚¢
+    // ãƒ•ã‚©ã‚°ãƒœãƒªãƒ¥ãƒ¼ãƒ ã«å…¥ã£ã¦ã„ãªã„å ´åˆã¯ä½•ã‚‚æç”»ã—ãªã„
     if (frontZ <= 0.0 || backZ <= 0.0)
     {
         discard;
     }
     
-    // ƒtƒHƒO‚ÌŒú‚İiŒã–ÊZ - ‘O–ÊZj
+    // ãƒ•ã‚©ã‚°ã®åšã¿ï¼ˆå¾Œé¢Z - å‰é¢Zï¼‰
     float thickness = backZ - frontZ;
     
-    // Œú‚İ‚ª•‰‚Ìê‡i‘OŒãŠÖŒW‚ª‚¨‚©‚µ‚¢ê‡j‚Í•`‰æ‚µ‚È‚¢
+    // åšã¿ãŒè² ã®å ´åˆï¼ˆå‰å¾Œé–¢ä¿‚ãŒãŠã‹ã—ã„å ´åˆï¼‰ã¯æç”»ã—ãªã„
     if (thickness < 0.0)
     {
         discard;
     }
     
-    // Beer-Lambert‘¥‚É‚æ‚éƒAƒ‹ƒtƒ@’lŒvZ
+    // Beer-Lambertå‰‡ã«ã‚ˆã‚‹ã‚¢ãƒ«ãƒ•ã‚¡å€¤è¨ˆç®—
     float alpha = saturate(1.0 - exp(-gSigmaT * thickness));
     
-    // ‚æ‚è”Z‚¢ƒtƒHƒOŒø‰Ê‚Ì‚½‚ß‚Ì’²®
+    // ã‚ˆã‚Šæ¿ƒã„ãƒ•ã‚©ã‚°åŠ¹æœã®ãŸã‚ã®èª¿æ•´
     alpha = pow(alpha, 2.0);
     
     // Pre-multiplied alpha
     float3 col = gFogColor * alpha;
+    return float4(col, alpha);
+}
+*/
+
+// ä¸­å¿ƒã ã‘æ¿ƒãã™ã‚‹
+// è¿½åŠ ï¼šçƒä¸­å¿ƒ(ãƒ“ãƒ¥ãƒ¼ç©ºé–“)ã¨åŠå¾„ãƒ»é‹­ã•
+float3 gSphereCenterVS;
+float gSphereRadius = 1.0;
+float gCenterSharpness = 10.0; // 2ã€œ6 ãã‚‰ã„ã§èª¿æ•´
+
+float4 PS_FogComposite(float2 uv : TEXCOORD0, float eyeZFront : TEXCOORD1) : COLOR0
+{
+    float frontZ = tex2D(SFront, uv).r;
+    float backZ = tex2D(SBack, uv).r;
+    if (frontZ <= 0 || backZ <= 0 || backZ <= frontZ)
+        discard;
+
+    // ãƒ“ãƒ¥ãƒ¼ç©ºé–“ä½ç½®ã‚’å¾©å…ƒï¼ˆLHï¼‰
+    float2 ndc = float2(uv.x * 2 - 1, 1 - uv.y * 2);
+    float invP11 = 1.0 / gProj._11, invP22 = 1.0 / gProj._22;
+    float3 Pfront = float3(ndc.x * frontZ * invP11, ndc.y * frontZ * invP22, frontZ);
+    float3 Pback = float3(ndc.x * backZ * invP11, ndc.y * backZ * invP22, backZ);
+    float thickness = length(Pback - Pfront);
+    float3 Pmid = 0.5 * (Pfront + Pback);
+
+    // ä¸­å¿ƒã‚¦ã‚§ã‚¤ãƒˆï¼šä¸­å¿ƒ r=0 ã§1ã€å¢ƒç•Œ r=R ã§0
+    float r = length(Pmid - gSphereCenterVS);
+    float w = saturate(1.0 - (r * r) / (gSphereRadius * gSphereRadius));
+    w = pow(w, gCenterSharpness); // ä¸­å¿ƒã ã‘ã‚’å¼·èª¿
+
+    // Beerâ€“Lambertï¼ˆå¯†åº¦ã‚’é‡ã¿ä»˜ã‘ã—ã¦ã‹ã‚‰ç©åˆ†ï¼‰
+    float sigma = gSigmaT * w;
+    float alpha = saturate(1.0 - exp(-sigma * thickness));
+
+    float3 col = gFogColor * alpha; // premultiplied
     return float4(col, alpha);
 }
 
@@ -166,7 +202,7 @@ technique Technique_FogComposite
 {
     pass P0
     {
-        CullMode = CCW; // ‘O–Ê‚ğŠî€‚É‚µ‚Ä‡¬
+        CullMode = CCW; // å‰é¢ã‚’åŸºæº–ã«ã—ã¦åˆæˆ
         ZEnable = TRUE;
         ZWriteEnable = FALSE;
         ZFunc = LESSEQUAL;
@@ -178,13 +214,13 @@ technique Technique_FogComposite
     }
 }
 
-// ---------- Alternative: ƒtƒHƒOƒRƒ“ƒ|ƒWƒbƒgiƒtƒ‹ƒXƒNƒŠ[ƒ“ƒNƒƒbƒh—pj----------
-// ƒtƒHƒOƒ{ƒŠƒ…[ƒ€‚ÌƒWƒIƒƒgƒŠ‚ğg‚í‚¸‚ÉAƒtƒ‹ƒXƒNƒŠ[ƒ“ƒNƒƒbƒh‚Å‡¬‚·‚éê‡
+// ---------- Alternative: ãƒ•ã‚©ã‚°ã‚³ãƒ³ãƒã‚¸ãƒƒãƒˆï¼ˆãƒ•ãƒ«ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚¯ãƒ¯ãƒƒãƒ‰ç”¨ï¼‰----------
+// ãƒ•ã‚©ã‚°ãƒœãƒªãƒ¥ãƒ¼ãƒ ã®ã‚¸ã‚ªãƒ¡ãƒˆãƒªã‚’ä½¿ã‚ãšã«ã€ãƒ•ãƒ«ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚¯ãƒ¯ãƒƒãƒ‰ã§åˆæˆã™ã‚‹å ´åˆ
 
 float4 VS_FullScreen(float3 pos : POSITION0, out float2 oUV : TEXCOORD0) : POSITION0
 {
     oUV = pos.xy * 0.5 + 0.5;
-    oUV.y = 1.0 - oUV.y; // UVÀ•WŒn‚ğ‡‚í‚¹‚é
+    oUV.y = 1.0 - oUV.y; // UVåº§æ¨™ç³»ã‚’åˆã‚ã›ã‚‹
     return float4(pos.xy, 0, 1);
 }
 
@@ -193,20 +229,20 @@ float4 PS_FullScreenFogComposite(float2 uv : TEXCOORD0) : COLOR0
     float frontZ = tex2D(SFront, uv).r;
     float backZ = tex2D(SBack, uv).r;
     
-    // ƒtƒHƒOƒ{ƒŠƒ…[ƒ€‚É“ü‚Á‚Ä‚¢‚È‚¢ê‡‚Í“§–¾
+    // ãƒ•ã‚©ã‚°ãƒœãƒªãƒ¥ãƒ¼ãƒ ã«å…¥ã£ã¦ã„ãªã„å ´åˆã¯é€æ˜
     if (frontZ <= 0.0 || backZ <= 0.0)
     {
         return float4(0, 0, 0, 0);
     }
     
-    // ƒtƒHƒO‚ÌŒú‚İ
+    // ãƒ•ã‚©ã‚°ã®åšã¿
     float thickness = backZ - frontZ;
     if (thickness < 0.0)
     {
         return float4(0, 0, 0, 0);
     }
     
-    // Beer-Lambert‘¥
+    // Beer-Lambertå‰‡
     float alpha = saturate(1.0 - exp(-gSigmaT * thickness));
     alpha = pow(alpha, 2.0);
     

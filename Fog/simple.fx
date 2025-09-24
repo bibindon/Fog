@@ -11,16 +11,14 @@ sampler textureSampler = sampler_state {
     MagFilter = LINEAR;
 };
 
-void vertex_shader(
-    in  float4 in_position  : POSITION,
-    in  float4 in_normal : NORMAL0,
-    in  float4 in_texcood : TEXCOORD0,
+void vertex_shader(in  float4 in_position  : POSITION,
+                   in  float4 in_normal    : NORMAL0,
+                   in  float4 in_texcood   : TEXCOORD0,
 
-    out float4 out_position : POSITION,
-    out float4 out_diffuse : COLOR0,
-    out float4 out_texcood : TEXCOORD0,
-    out float4 fog : TEXCOORD1
-    )
+                   out float4 out_position : POSITION,
+                   out float4 out_diffuse  : COLOR0,
+                   out float4 out_texcood  : TEXCOORD0,
+                   out float4 fog          : TEXCOORD1)
 {
     // ワールド座標に変換
     float4 worldPos = mul(in_position, matWorld);
@@ -42,12 +40,12 @@ void vertex_shader(
 
 // 霧はピクセルシェーダーでやらないと意味がない。
 // 頂点シェーダーでやると、遠いほどくっきり見えるようになるだけ
-void NoWorkingPixelShader(
-    in float4 ScreenColor : COLOR0,
-    in float2 in_texcood : TEXCOORD0,
-    in float4 fog : TEXCOORD1,
+// テクスチャの色はピクセルシェーダーじゃないとわからないので
+void NoWorkingPixelShader(in float4 ScreenColor : COLOR0,
+                          in float2 in_texcood  : TEXCOORD0,
+                          in float4 fog         : TEXCOORD1,
 
-    out float4 outColor : COLOR)
+                          out float4 outColor   : COLOR)
 {
     float4 workColor = (float4)0;
     workColor = tex2D(textureSampler, in_texcood);

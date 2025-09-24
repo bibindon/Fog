@@ -160,7 +160,9 @@ float4 PS_FrontComposite(float2 uv : TEXCOORD0, float eyeZFront : TEXCOORD1) : C
     float endZ = min(backZ, sceneZ);
     float thickness = endZ - eyeZFront;
     if (thickness < 0.0)
+    {
         thickness = 0.0;
+    }
 
     float alpha = saturate(1.0 - exp(-gSigmaT * thickness));
     alpha = pow(alpha, 3);

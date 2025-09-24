@@ -116,7 +116,7 @@ void Render()
     D3DXVECTOR2 invSz(1.0f / WINDOW_W, 1.0f / WINDOW_H);
 
     D3DXMATRIX mWCube;   D3DXMatrixIdentity(&mWCube);               // cube at (0,0,0)
-    D3DXMATRIX mWSphere; D3DXMatrixTranslation(&mWSphere, 1, 1, 1);    // sphere at (1,1,1)
+    D3DXMATRIX mWSphere; D3DXMatrixTranslation(&mWSphere, 1, 2, 1);    // sphere at (1,1,1)
 
     LPDIRECT3DSURFACE9 bb = NULL, dsScene = NULL;
     g_pd3d->GetRenderTarget(0, &bb);
@@ -184,7 +184,7 @@ void Render()
     g_fx->SetTexture("gBackDepthTex", g_rtBackDepth);
     g_fx->SetTexture("gSceneDepthTex", g_rtSceneDepth);
     D3DXVECTOR4 fog(1, 1, 1, 1); g_fx->SetVector("gFogColor", &fog);
-    g_fx->SetFloat("gSigmaT", 0.6f);
+    g_fx->SetFloat("gSigmaT", 0.7f);
     g_fx->Begin(&nPass, 0); g_fx->BeginPass(0);
     for (DWORD i = 0, n = GetSubsetCount(g_meshSphere); i < n; ++i) g_meshSphere->DrawSubset(i);
     g_fx->EndPass(); g_fx->End();
